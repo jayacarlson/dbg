@@ -73,7 +73,7 @@ func trc(a ...interface{}) {
 			s = fmt.Sprintf(infoColor + "nil" + normColor)
 		}
 	}
-	output(s + "\n")
+	output("%s\n", s)
 }
 
 // returns location of CHK caller
