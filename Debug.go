@@ -562,6 +562,13 @@ func IAm() string {
 	return nm[strings.LastIndex(nm, ".")+1:]
 }
 
+func IWas() string {
+	pc := make([]uintptr, 4)
+	runtime.Callers(3, pc)
+	nm := runtime.FuncForPC(pc[0]).Name()
+	return nm[strings.LastIndex(nm, ".")+1:]
+}
+
 // a quick func to output location information (file & line#)
 func ImAt() string {
 	return funcAt(1)
