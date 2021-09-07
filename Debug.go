@@ -196,6 +196,21 @@ func Danger(fstr string, a ...interface{}) {
 	output(fatalColor+fstr+normColor+"\n", a...)
 }
 
+func MustHaveP(a ...interface{}) { // (tst1, tst2, tst3, "missing tst")
+	msg := "Missing value"
+	if len(a) > 1 { // pull last interface off and see if a msg 'string'
+		if m, ok := a[len(a)-1].(string); ok {
+			msg = m
+			a = a[:len(a)-1]
+		}
+	}
+	for _, t := range a {
+		if t == nil {
+			panic(failed(false, msg))
+		}
+	}
+}
+
 // ------------------------------------------------------------------------- //
 
 // simply echo to output, no color hilites
@@ -397,7 +412,7 @@ func (d DbgMsk) Danger(m uint32, fstr string, a ...interface{}) {
 // output err message if expected error not matched
 func ExpErr(e, x error) bool {
 	if e != x {
-		output("%s\n", errColor + "ERR " + at() + normColor + errored(false, e, "Expected error (%v) not given", x))
+		output("%s\n", errColor+"ERR "+at()+normColor+errored(false, e, "Expected error (%v) not given", x))
 	}
 	return (e != x)
 }
@@ -405,7 +420,7 @@ func ExpErr(e, x error) bool {
 // output err message if test not true
 func ChkTru(tst bool, a ...interface{}) bool {
 	if !tst {
-		output("%s\n", failColor + "CHK " + at() + normColor + failed(false, a...))
+		output("%s\n", failColor+"CHK "+at()+normColor+failed(false, a...))
 	}
 	return !tst
 }
@@ -413,7 +428,7 @@ func ChkTru(tst bool, a ...interface{}) bool {
 // output err message if given error isn't nil - returns testable boolean
 func ChkErr(e error, a ...interface{}) bool {
 	if e != nil {
-		output("%s\n", errColor + "ERR " + at() + normColor + errored(false, e, a...))
+		output("%s\n", errColor+"ERR "+at()+normColor+errored(false, e, a...))
 	}
 	return (e != nil)
 }
@@ -426,7 +441,7 @@ func ChkErrI(e error, i []error, a ...interface{}) bool {
 				return true // error still occured, just not reported
 			}
 		}
-		output("%s\n", errColor + "ERR " + at() + normColor + errored(false, e, a...))
+		output("%s\n", errColor+"ERR "+at()+normColor+errored(false, e, a...))
 	}
 	return (e != nil)
 }
@@ -436,7 +451,7 @@ func ChkErrList(errs []error, a ...interface{}) bool {
 	failed := false
 	for _, e := range errs {
 		if e != nil {
-			output("%s\n", errColor + "ERR " + at() + normColor + errored(false, e, a...))
+			output("%s\n", errColor+"ERR "+at()+normColor+errored(false, e, a...))
 			failed = true
 		}
 	}
@@ -456,7 +471,7 @@ func ChkTruP(tst bool, a ...interface{}) {
 // output err message if test not true, then EXIT
 func ChkTruX(tst bool, a ...interface{}) {
 	if !tst {
-		output("%s\n", failColor + "CHK " + at() + normColor + failed(true, a...))
+		output("%s\n", failColor+"CHK "+at()+normColor+failed(true, a...))
 		os.Exit(-1)
 	}
 }
@@ -471,7 +486,7 @@ func ChkErrP(e error, a ...interface{}) {
 // output err message and EXIT if given error isn't nil
 func ChkErrX(e error, a ...interface{}) {
 	if e != nil {
-		output("%s\n", errColor + "ERR " + at() + normColor + errored(true, e, a...))
+		output("%s\n", errColor+"ERR "+at()+normColor+errored(true, e, a...))
 		os.Exit(-1)
 	}
 }
@@ -483,7 +498,7 @@ func Panic(a ...interface{}) {
 
 // fatal error (exit) with any optional chk_args
 func Fatal(a ...interface{}) {
-	output("%s\n", fatalColor + genText_Closer(a...) + normColor)
+	output("%s\n", fatalColor+genText_Closer(a...)+normColor)
 	os.Exit(-1)
 }
 
@@ -497,7 +512,7 @@ func PanicIf(b bool, a ...interface{}) {
 // conditional fatal
 func FatalIf(b bool, a ...interface{}) {
 	if b {
-		output("%s\n", fatalColor + failed(true, a...) + normColor)
+		output("%s\n", fatalColor+failed(true, a...)+normColor)
 		os.Exit(-1)
 	}
 }
@@ -512,7 +527,7 @@ func PanicIfErr(e error, a ...interface{}) {
 // conditional fatal
 func FatalIfErr(e error, a ...interface{}) {
 	if e != nil {
-		output("%s\n", fatalColor + errored(true, e, a...) + normColor)
+		output("%s\n", fatalColor+errored(true, e, a...)+normColor)
 		os.Exit(-1)
 	}
 }
