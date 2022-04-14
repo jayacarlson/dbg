@@ -1,6 +1,7 @@
 package dbg
 
 import (
+	"errors"
 	"os"
 	"path"
 	"runtime"
@@ -66,11 +67,11 @@ import (
 		if error is non-nil, output check failed message (see below) then
 		 either Panic or force Exit -- See dbg.Panic below
 
-	Panic( [chk_args] )						output colored text then PANIC! -- See dbg.Panic below
+	Panic( [chk_args] )						output colored text then PANIC!
 	Fatal( [chk_args] )						output colored text then force exit
-	PanicIf( bool [, chk_args] )			PANIC only if true -- See dbg.Panic below
+	PanicIf( bool [, chk_args] )			PANIC only if true
 	FatalIf( bool [, chk_args] )			force exit if true
-	PanicIfErr( err [, chk_args] )			PANIC only if err is not nil -- See dbg.Panic below
+	PanicIfErr( err [, chk_args] )			PANIC only if err is not nil
 	FatalIfErr( err [, chk_args] )			force exit if err is not nil
 
 	TRC( [trc_args] )						output calling func file & line number
@@ -88,16 +89,13 @@ import (
 	ErrWasAt() (string, int)				returns callers caller file & line number
 
 	StackTrace()							output call stack (up to ten levels deep)
-
-	NOTE:
-	dbg.Panic() always passes the built-in panic a STRING, even if given an error
-	If using defer, the returned value for 'recover' will therefore always be a string
 */
 
 type (
 	// Debug output that can work off of a simple bool flag
 	Dbg struct {
 		Enabled bool
+		MaxOut  int // maximum number of lines to output before doing system exit
 	}
 
 	// Debug output that can work off of an output level:
@@ -124,15 +122,17 @@ func Link() {}
 
 // enable color output for debug text
 func Color() {
-	normColor = "\033[0m"     // reset to normal text
-	msgColor = "\033[36m"     // CYAN
-	infoColor = "\033[32m"    // GREEN
-	noteColor = "\033[34m"    // BLUE
-	warnColor = "\033[33m"    // ORANGE - YELLOW
-	ccnColor = "\033[93m"     // YELLOW - BRIGHT ORANGE
-	failColor = "\033[35m"    // MAGENTA
-	errColor = "\033[31m"     // RED
-	fatalColor = "\033[1;41m" // WHITE on RED
+	normColor = "\033[0m"         // reset to normal text
+	msgColor = "\033[36m"         // CYAN
+	infoColor = "\033[32m"        // GREEN
+	noteColor = "\033[34m"        // BLUE
+	warnColor = "\033[33m"        // ORANGE - YELLOW
+	ccnColor = "\033[93m"         // YELLOW - BRIGHT ORANGE
+	failColor = "\033[35m"        // MAGENTA
+	errColor = "\033[31m"         // RED
+	fatalColor = "\033[1;41m"     // WHITE on RED
+	WARNColor = "\033[30;43m"     // WHITE on ORANGE
+	CAUTNColor = "\033[1;30;103m" // BLACK on YELLOW
 }
 
 // disable color output for debug text
@@ -146,6 +146,8 @@ func NoColor() {
 	failColor = ""
 	errColor = ""
 	fatalColor = ""
+	WARNColor = ""
+	CAUTNColor = ""
 }
 
 // ------------------------------------------------------------------------- //
@@ -183,12 +185,12 @@ func Caution(fstr string, a ...interface{}) {
 
 // magenta text to output
 func Failed(fstr string, a ...interface{}) {
-	output(failColor+fstr+normColor+"\n", a...)
+	outerr(failColor+fstr+normColor+"\n", a...)
 }
 
 // red text to output
 func Error(fstr string, a ...interface{}) {
-	output(errColor+fstr+normColor+"\n", a...)
+	outerr(errColor+fstr+normColor+"\n", a...)
 }
 
 // bold white on red background text to output
@@ -196,83 +198,139 @@ func Danger(fstr string, a ...interface{}) {
 	output(fatalColor+fstr+normColor+"\n", a...)
 }
 
-func MustHaveP(a ...interface{}) { // (tst1, tst2, tst3, "missing tst")
+// white on orange text to output
+func WARNING(fstr string, a ...interface{}) {
+	output(WARNColor+" WARNING "+normColor+" "+fstr+"\n", a...)
+}
+
+// black on yellow (bright orange) text to output
+func CAUTION(fstr string, a ...interface{}) {
+	output(CAUTNColor+" CAUTION "+normColor+" "+fstr+"\n", a...)
+}
+
+// red text to output
+func ERROR(fstr string, a ...interface{}) {
+	output(fatalColor+"  ERROR  "+normColor+" "+fstr+"\n", a...)
+}
+
+func MustHaveP(a ...interface{}) { // (tst1, tst2, tst3, "missing tst" | error)
 	msg := "Missing value"
-	if len(a) > 1 { // pull last interface off and see if a msg 'string'
+	if len(a) > 1 { // pull last interface off and see if a msg 'string' or error
 		if m, ok := a[len(a)-1].(string); ok {
 			msg = m
+			a = a[:len(a)-1]
+		} else if e, ok := a[len(a)-1].(error); ok {
+			msg = e.Error()
 			a = a[:len(a)-1]
 		}
 	}
 	for _, t := range a {
 		if t == nil {
-			panic(failed(false, msg))
+			panic(errors.New(failed(false, msg)))
 		}
 	}
 }
 
+func MustHave(a ...interface{}) error { // (tst1, tst2, tst3, "missing tst" | error)
+	err := errors.New("Missing value")
+	if len(a) > 1 { // pull last interface off and see if a msg 'string' or error
+		if m, ok := a[len(a)-1].(string); ok {
+			err = errors.New(m)
+			a = a[:len(a)-1]
+		} else if e, ok := a[len(a)-1].(error); ok {
+			err = e
+			a = a[:len(a)-1]
+		}
+	}
+	for _, t := range a {
+		if t == nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ------------------------------------------------------------------------- //
 
+func (d *Dbg) decExit() {
+	if d.MaxOut > 0 {
+		d.MaxOut -= 1
+		if 0 == d.MaxOut {
+			Error("--Countdown expired %s", funcAt(2))
+			os.Exit(-1)
+		}
+	}
+}
+
 // simply echo to output, no color hilites
-func (d Dbg) Echo(fstr string, a ...interface{}) {
+func (d *Dbg) Echo(fstr string, a ...interface{}) {
 	if d.Enabled {
 		output(fstr+"\n", a...)
+		d.decExit()
 	}
 }
 
 // cyan text to output
-func (d Dbg) Message(fstr string, a ...interface{}) {
+func (d *Dbg) Message(fstr string, a ...interface{}) {
 	if d.Enabled {
 		output(msgColor+fstr+normColor+"\n", a...)
+		d.decExit()
 	}
 }
 
 // green text to output
-func (d Dbg) Info(fstr string, a ...interface{}) {
+func (d *Dbg) Info(fstr string, a ...interface{}) {
 	if d.Enabled {
 		output(infoColor+fstr+normColor+"\n", a...)
+		d.decExit()
 	}
 }
 
 // blue text to output
-func (d Dbg) Note(fstr string, a ...interface{}) {
+func (d *Dbg) Note(fstr string, a ...interface{}) {
 	if d.Enabled {
 		output(noteColor+fstr+normColor+"\n", a...)
+		d.decExit()
 	}
 }
 
 // orange text to output
-func (d Dbg) Warning(fstr string, a ...interface{}) {
+func (d *Dbg) Warning(fstr string, a ...interface{}) {
 	if d.Enabled {
 		output(warnColor+fstr+normColor+"\n", a...)
+		d.decExit()
 	}
 }
 
 // yellow (bright orange) text to output
-func (d Dbg) Caution(fstr string, a ...interface{}) {
+func (d *Dbg) Caution(fstr string, a ...interface{}) {
 	if d.Enabled {
 		output(ccnColor+fstr+normColor+"\n", a...)
+		d.decExit()
 	}
 }
 
 // magenta text to output
-func (d Dbg) Failed(fstr string, a ...interface{}) {
+func (d *Dbg) Failed(fstr string, a ...interface{}) {
 	if d.Enabled {
-		output(failColor+fstr+normColor+"\n", a...)
+		outerr(failColor+fstr+normColor+"\n", a...)
+		d.decExit()
 	}
 }
 
 // red text to output
-func (d Dbg) Error(fstr string, a ...interface{}) {
+func (d *Dbg) Error(fstr string, a ...interface{}) {
 	if d.Enabled {
-		output(errColor+fstr+normColor+"\n", a...)
+		outerr(errColor+fstr+normColor+"\n", a...)
+		d.decExit()
 	}
 }
 
 // bold white on red background text to output
-func (d Dbg) Danger(fstr string, a ...interface{}) {
+func (d *Dbg) Danger(fstr string, a ...interface{}) {
 	if d.Enabled {
 		output(fatalColor+fstr+normColor+"\n", a...)
+		d.decExit()
 	}
 }
 
@@ -323,14 +381,14 @@ func (d DbgLvl) Caution(l int, fstr string, a ...interface{}) {
 // magenta text to output
 func (d DbgLvl) Failed(l int, fstr string, a ...interface{}) {
 	if d.Level > 0 && d.Level <= l {
-		output(failColor+fstr+normColor+"\n", a...)
+		outerr(failColor+fstr+normColor+"\n", a...)
 	}
 }
 
 // red text to output
 func (d DbgLvl) Error(l int, fstr string, a ...interface{}) {
 	if d.Level > 0 && d.Level <= l {
-		output(errColor+fstr+normColor+"\n", a...)
+		outerr(errColor+fstr+normColor+"\n", a...)
 	}
 }
 
@@ -388,14 +446,14 @@ func (d DbgMsk) Caution(m uint32, fstr string, a ...interface{}) {
 // magenta text to output
 func (d DbgMsk) Failed(m uint32, fstr string, a ...interface{}) {
 	if 0 != d.Mask&m {
-		output(failColor+fstr+normColor+"\n", a...)
+		outerr(failColor+fstr+normColor+"\n", a...)
 	}
 }
 
 // red text to output
 func (d DbgMsk) Error(m uint32, fstr string, a ...interface{}) {
 	if 0 != d.Mask&m {
-		output(errColor+fstr+normColor+"\n", a...)
+		outerr(errColor+fstr+normColor+"\n", a...)
 	}
 }
 
@@ -407,12 +465,12 @@ func (d DbgMsk) Danger(m uint32, fstr string, a ...interface{}) {
 }
 
 // ------------------------------------------------------------------------- //
-// These functions do not allow the 'closer' func as they always return
+// These functions do not allow the 'closer' func as they always return a bool
 
 // output err message if expected error not matched
 func ExpErr(e, x error) bool {
 	if e != x {
-		output("%s\n", errColor+"ERR "+at()+normColor+errored(false, e, "Expected error (%v) not given", x))
+		outerr("%s\n", errColor+"ERR "+at()+normColor+errored(false, e, "Expected error (%v) not given", x))
 	}
 	return (e != x)
 }
@@ -420,7 +478,7 @@ func ExpErr(e, x error) bool {
 // output err message if test not true
 func ChkTru(tst bool, a ...interface{}) bool {
 	if !tst {
-		output("%s\n", failColor+"CHK "+at()+normColor+failed(false, a...))
+		outerr("%s\n", failColor+"CHK "+at()+normColor+failed(false, a...))
 	}
 	return !tst
 }
@@ -428,7 +486,7 @@ func ChkTru(tst bool, a ...interface{}) bool {
 // output err message if given error isn't nil - returns testable boolean
 func ChkErr(e error, a ...interface{}) bool {
 	if e != nil {
-		output("%s\n", errColor+"ERR "+at()+normColor+errored(false, e, a...))
+		outerr("%s\n", errColor+"ERR "+at()+normColor+errored(false, e, a...))
 	}
 	return (e != nil)
 }
@@ -441,7 +499,7 @@ func ChkErrI(e error, i []error, a ...interface{}) bool {
 				return true // error still occured, just not reported
 			}
 		}
-		output("%s\n", errColor+"ERR "+at()+normColor+errored(false, e, a...))
+		outerr("%s\n", errColor+"ERR "+at()+normColor+errored(false, e, a...))
 	}
 	return (e != nil)
 }
@@ -451,7 +509,7 @@ func ChkErrList(errs []error, a ...interface{}) bool {
 	failed := false
 	for _, e := range errs {
 		if e != nil {
-			output("%s\n", errColor+"ERR "+at()+normColor+errored(false, e, a...))
+			outerr("%s\n", errColor+"ERR "+at()+normColor+errored(false, e, a...))
 			failed = true
 		}
 	}
@@ -464,14 +522,14 @@ func ChkErrList(errs []error, a ...interface{}) bool {
 // output err message if test not true, then PANIC
 func ChkTruP(tst bool, a ...interface{}) {
 	if !tst {
-		panic(failed(true, a...))
+		panic(errors.New(failed(true, a...)))
 	}
 }
 
 // output err message if test not true, then EXIT
 func ChkTruX(tst bool, a ...interface{}) {
 	if !tst {
-		output("%s\n", failColor+"CHK "+at()+normColor+failed(true, a...))
+		outerr("%s\n", failColor+"CHK "+at()+normColor+failed(true, a...))
 		os.Exit(-1)
 	}
 }
@@ -479,40 +537,40 @@ func ChkTruX(tst bool, a ...interface{}) {
 // output err message and PANIC if given error isn't nil
 func ChkErrP(e error, a ...interface{}) {
 	if e != nil {
-		panic(errored(true, e, a...))
+		panic(errors.New(errored(true, e, a...)))
 	}
 }
 
 // output err message and EXIT if given error isn't nil
 func ChkErrX(e error, a ...interface{}) {
 	if e != nil {
-		output("%s\n", errColor+"ERR "+at()+normColor+errored(true, e, a...))
+		outerr("%s\n", errColor+"ERR "+at()+normColor+errored(true, e, a...))
 		os.Exit(-1)
 	}
 }
 
 // panic with any optional chk_args
 func Panic(a ...interface{}) {
-	panic(genText_Closer(a...))
+	panic(errors.New(genText_Closer(a...)))
 }
 
 // fatal error (exit) with any optional chk_args
 func Fatal(a ...interface{}) {
-	output("%s\n", fatalColor+genText_Closer(a...)+normColor)
+	outerr("%s\n", fatalColor+genText_Closer(a...)+normColor)
 	os.Exit(-1)
 }
 
 // conditional panic
 func PanicIf(b bool, a ...interface{}) {
 	if b {
-		panic(failed(true, a...))
+		panic(errors.New(failed(true, a...)))
 	}
 }
 
 // conditional fatal
 func FatalIf(b bool, a ...interface{}) {
 	if b {
-		output("%s\n", fatalColor+failed(true, a...)+normColor)
+		outerr("%s\n", fatalColor+failed(true, a...)+normColor)
 		os.Exit(-1)
 	}
 }
@@ -520,14 +578,14 @@ func FatalIf(b bool, a ...interface{}) {
 // conditional panic
 func PanicIfErr(e error, a ...interface{}) {
 	if e != nil {
-		panic(errored(true, e, a...))
+		panic(errors.New(errored(true, e, a...)))
 	}
 }
 
 // conditional fatal
 func FatalIfErr(e error, a ...interface{}) {
 	if e != nil {
-		output("%s\n", fatalColor+errored(true, e, a...)+normColor)
+		outerr("%s\n", fatalColor+errored(true, e, a...)+normColor)
 		os.Exit(-1)
 	}
 }
