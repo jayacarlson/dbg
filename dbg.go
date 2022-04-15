@@ -2,6 +2,7 @@ package dbg
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"strings"
 
@@ -17,10 +18,12 @@ import (
 var (
 	// Can redirect debug output to logging by changing this to log.Printf
 	output = fmt.Printf
+	outerr = errout
 
-	normColor, msgColor, infoColor  string
-	noteColor, warnColor, ccnColor  string
-	failColor, errColor, fatalColor string
+	normColor, msgColor, infoColor    string
+	noteColor, warnColor, ccnColor    string
+	failColor, errColor, fatalColor   string
+	WARNColor, CAUTNColor, ERRORColor string
 )
 
 // ========================================================================= //
@@ -29,6 +32,10 @@ func init() {
 	if env.IsLinux() {
 		Color() // enable color output on linux systems
 	}
+}
+
+func errout(f string, a ...interface{}) {
+	fmt.Fprintf(os.Stderr, f, a...) // why not going to Stderr?
 }
 
 // returns a shortened file name with minimal leading path
@@ -91,17 +98,15 @@ func funcAt(d int) string {
 		name := runtime.FuncForPC(uptr).Name()
 		return fmt.Sprintf("@ %d in %s - %s()", line, shortName(file), name[strings.LastIndex(name, "/")+1:])
 	}
-	return "<UNKNOWN>"
+	return "@ <UNKNOWN>"
 }
 
 // return arg text after calling any possible CLOSER()
 func failed(c bool, a ...interface{}) string {
-	if len(a) > 0 {
-		if c {
-			if cl, ok := a[len(a)-1].(func()); ok {
-				cl()             // call closer function
-				a = a[:len(a)-1] // remove it from arg list
-			}
+	if len(a) > 0 && c {
+		if cl, ok := a[len(a)-1].(func()); ok {
+			cl()             // call closer function
+			a = a[:len(a)-1] // remove it from arg list
 		}
 	}
 	return genText(a...)
