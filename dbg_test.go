@@ -161,6 +161,7 @@ func TestDbg(t *testing.T) {
 	WARNING("WARNING text")
 	CAUTION("CAUTION text")
 	ERROR("ERROR text")
+	FAULT("FAULT text")
 
 	bug.Enabled = true // debug messages should be visable
 	bug.Echo("bug{true} Echo text")
@@ -196,15 +197,15 @@ func TestDbg(t *testing.T) {
 	lvl.Danger(9, "lvl{0} 9 - Danger text")
 
 	lvl.Level = 5
-	lvl.Echo(1, "lvl{5} 1 - Echo text FAILED") // should not be output...
-	lvl.Note(2, "lvl{5} 2 - Note text FAILED")
-	lvl.Info(3, "lvl{5} 3 - Info text FAILED")
-	lvl.Message(4, "lvl{5} 4 - Message text FAILED")
-	lvl.Warning(5, "lvl{5} 5 - Warning text") // should be output...
-	lvl.Caution(6, "lvl{5} 6 - Caution text")
-	lvl.Failed(7, "lvl{5} 7 - Failed text")
-	lvl.Error(8, "lvl{5} 8 - Error text")
-	lvl.Danger(9, "lvl{5} 9 - Danger text")
+	lvl.Echo(1, "lvl{5} 1 - Echo text") // should be output...
+	lvl.Note(2, "lvl{5} 2 - Note text")
+	lvl.Info(3, "lvl{5} 3 - Info text")
+	lvl.Message(4, "lvl{5} 4 - Message text")
+	lvl.Warning(5, "lvl{5} 5 - Warning text")
+	lvl.Caution(6, "lvl{5} 6 - Caution text FAILED") // should not be output...
+	lvl.Failed(7, "lvl{5} 7 - Failed text FAILED")
+	lvl.Error(8, "lvl{5} 8 - Error text FAILED")
+	lvl.Danger(9, "lvl{5} 9 - Danger text FAILED")
 
 	msk := DbgMsk{0xA}
 	msk.Echo(1, "msk{xA} 1 - Echo text FAILED")       // should not be output

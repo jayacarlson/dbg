@@ -20,10 +20,10 @@ var (
 	output = fmt.Printf
 	outerr = errout
 
-	normColor, msgColor, infoColor    string
-	noteColor, warnColor, ccnColor    string
-	failColor, errColor, fatalColor   string
-	WARNColor, CAUTNColor, ERRORColor string
+	normColor, msgColor, infoColor   string
+	noteColor, warnColor, ccnColor   string
+	failColor, errColor, fatalColor  string
+	blkWARNING, blkCAUTION, blkFAULT string
 )
 
 // ========================================================================= //
@@ -127,17 +127,6 @@ func errored(c bool, e error, a ...interface{}) string {
 		txt = fmt.Sprintf("%v", e)
 	}
 	return txt
-}
-
-// generates text for output and calls any CLOSER function before error processing continues
-func genText_Closer(a ...interface{}) string {
-	if len(a) > 0 { // check for CLOSER -- pull last interface off and see if a 'func'
-		if cl, ok := a[len(a)-1].(func()); ok {
-			cl()             // call closer function
-			a = a[:len(a)-1] // remove it from arg list
-		}
-	}
-	return genText(a...)
 }
 
 // generates text for output, supplying a 'Check failed' if none given

@@ -99,14 +99,15 @@ type (
 	}
 
 	// Debug output that can work off of an output level:
-	//	if Level == 0, all output is disabled
-	//  if Level > level, output is disabled
+	//		In general, the higher the DbgLvl, the more output
+	//	if DbgLvl == 0, all output is disabled
+	//  if DbgLvl < level, output is disabled
 	DbgLvl struct {
 		Level int
 	}
 
 	// Debug output that can work off of an output mask:
-	//	if Mask & mask == 0, output is disabled
+	//	if DbgMsk & mask == 0, output is disabled
 	DbgMsk struct {
 		Mask uint32
 	}
@@ -131,8 +132,9 @@ func Color() {
 	failColor = "\033[35m"        // MAGENTA
 	errColor = "\033[31m"         // RED
 	fatalColor = "\033[1;41m"     // WHITE on RED
-	WARNColor = "\033[30;43m"     // WHITE on ORANGE
-	CAUTNColor = "\033[1;30;103m" // BLACK on YELLOW
+	blkCAUTION = "\033[1;30;103m" // BLACK on YELLOW
+	blkWARNING = "\033[30;43m"    // WHITE on ORANGE
+	blkFAULT = "\033[30;105m"     // WHITE on MAGENTA
 }
 
 // disable color output for debug text
@@ -146,8 +148,9 @@ func NoColor() {
 	failColor = ""
 	errColor = ""
 	fatalColor = ""
-	WARNColor = ""
-	CAUTNColor = ""
+	blkCAUTION = ""
+	blkWARNING = ""
+	blkFAULT = ""
 }
 
 // ------------------------------------------------------------------------- //
@@ -200,17 +203,22 @@ func Danger(fstr string, a ...interface{}) {
 
 // white on orange text to output
 func WARNING(fstr string, a ...interface{}) {
-	output(WARNColor+" WARNING "+normColor+" "+fstr+"\n", a...)
+	output(blkWARNING+" WARNING "+normColor+" "+fstr+"\n", a...)
 }
 
 // black on yellow (bright orange) text to output
 func CAUTION(fstr string, a ...interface{}) {
-	output(CAUTNColor+" CAUTION "+normColor+" "+fstr+"\n", a...)
+	output(blkCAUTION+" CAUTION "+normColor+" "+fstr+"\n", a...)
 }
 
 // red text to output
 func ERROR(fstr string, a ...interface{}) {
 	output(fatalColor+"  ERROR  "+normColor+" "+fstr+"\n", a...)
+}
+
+// red text to output
+func FAULT(fstr string, a ...interface{}) {
+	output(blkFAULT+"  FAULT  "+normColor+" "+fstr+"\n", a...)
 }
 
 func MustHaveP(a ...interface{}) { // (tst1, tst2, tst3, "missing tst" | error)
@@ -334,69 +342,103 @@ func (d *Dbg) Danger(fstr string, a ...interface{}) {
 	}
 }
 
+// output err message if test not true
+func (d *Dbg) ChkTru(tst bool, a ...interface{}) bool {
+	if d.Enabled && !tst {
+		outerr("%s\n", failColor+"CHK "+at()+normColor+failed(false, a...))
+		d.decExit()
+	}
+	return !tst
+}
+
+// output err message if given error isn't nil - returns testable boolean
+func (d *Dbg) ChkErr(e error, a ...interface{}) bool {
+	if d.Enabled && e != nil {
+		outerr("%s\n", errColor+"ERR "+at()+normColor+errored(false, e, a...))
+		d.decExit()
+	}
+	return (e != nil)
+}
+
 // ------------------------------------------------------------------------- //
 
 // simply echo to output, no color hilites
 func (d DbgLvl) Echo(l int, fstr string, a ...interface{}) {
-	if d.Level > 0 && d.Level <= l {
+	if d.Level > 0 && d.Level >= l {
 		output(fstr+"\n", a...)
 	}
 }
 
 // cyan text to output
 func (d DbgLvl) Message(l int, fstr string, a ...interface{}) {
-	if d.Level > 0 && d.Level <= l {
+	if d.Level > 0 && d.Level >= l {
 		output(msgColor+fstr+normColor+"\n", a...)
 	}
 }
 
 // green text to output
 func (d DbgLvl) Info(l int, fstr string, a ...interface{}) {
-	if d.Level > 0 && d.Level <= l {
+	if d.Level > 0 && d.Level >= l {
 		output(infoColor+fstr+normColor+"\n", a...)
 	}
 }
 
 // blue text to output
 func (d DbgLvl) Note(l int, fstr string, a ...interface{}) {
-	if d.Level > 0 && d.Level <= l {
+	if d.Level > 0 && d.Level >= l {
 		output(noteColor+fstr+normColor+"\n", a...)
 	}
 }
 
 // orange text to output
 func (d DbgLvl) Warning(l int, fstr string, a ...interface{}) {
-	if d.Level > 0 && d.Level <= l {
+	if d.Level > 0 && d.Level >= l {
 		output(warnColor+fstr+normColor+"\n", a...)
 	}
 }
 
 // yellow (bright orange) text to output
 func (d DbgLvl) Caution(l int, fstr string, a ...interface{}) {
-	if d.Level > 0 && d.Level <= l {
+	if d.Level > 0 && d.Level >= l {
 		output(ccnColor+fstr+normColor+"\n", a...)
 	}
 }
 
 // magenta text to output
 func (d DbgLvl) Failed(l int, fstr string, a ...interface{}) {
-	if d.Level > 0 && d.Level <= l {
+	if d.Level > 0 && d.Level >= l {
 		outerr(failColor+fstr+normColor+"\n", a...)
 	}
 }
 
 // red text to output
 func (d DbgLvl) Error(l int, fstr string, a ...interface{}) {
-	if d.Level > 0 && d.Level <= l {
+	if d.Level > 0 && d.Level >= l {
 		outerr(errColor+fstr+normColor+"\n", a...)
 	}
 }
 
 // bold white on red background text to output
 func (d DbgLvl) Danger(l int, fstr string, a ...interface{}) {
-	if d.Level > 0 && d.Level <= l {
+	if d.Level > 0 && d.Level >= l {
 		output(fatalColor+fstr+normColor+"\n", a...)
 	}
+}
+
+// output err message if test not true
+func (d DbgLvl) ChkTru(l int, tst bool, a ...interface{}) bool {
+	if d.Level > 0 && d.Level >= l && !tst {
+		outerr("%s\n", failColor+"CHK "+at()+normColor+failed(false, a...))
+	}
+	return !tst
+}
+
+// output err message if given error isn't nil - returns testable boolean
+func (d DbgLvl) ChkErr(l int, e error, a ...interface{}) bool {
+	if d.Level > 0 && d.Level >= l && nil != e {
+		outerr("%s\n", errColor+"ERR "+at()+normColor+errored(false, e, a...))
+	}
+	return (e != nil)
 }
 
 // ------------------------------------------------------------------------- //
@@ -551,12 +593,12 @@ func ChkErrX(e error, a ...interface{}) {
 
 // panic with any optional chk_args
 func Panic(a ...interface{}) {
-	panic(errors.New(genText_Closer(a...)))
+	panic(errors.New(failed(true, a...)))
 }
 
 // fatal error (exit) with any optional chk_args
 func Fatal(a ...interface{}) {
-	outerr("%s\n", fatalColor+genText_Closer(a...)+normColor)
+	outerr("%s\n", fatalColor+failed(true, a...)+normColor)
 	os.Exit(-1)
 }
 
