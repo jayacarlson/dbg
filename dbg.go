@@ -20,10 +20,10 @@ var (
 	output = fmt.Printf
 	outerr = errout
 
-	normColor, msgColor, infoColor   string
-	noteColor, warnColor, ccnColor   string
-	failColor, errColor, fatalColor  string
-	blkWARNING, blkCAUTION, blkFAULT string
+	normColor, msgColor, infoColor, noteColor string
+	statColor, warnColor, ccnColor, failColor string
+	errColor, fatalColor                      string
+	blkWARNING, blkCAUTION, blkFAULT          string
 )
 
 // ========================================================================= //

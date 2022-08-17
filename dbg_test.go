@@ -153,6 +153,7 @@ func TestDbg(t *testing.T) {
 	Note("Note text")
 	Info("Info text")
 	Message("Message text")
+	Status("Status text")
 	Warning("Warning text")
 	Caution("Caution text")
 	Failed("Failed text")
@@ -167,6 +168,7 @@ func TestDbg(t *testing.T) {
 	bug.Echo("bug{true} Echo text")
 	bug.Note("bug{true} Note text")
 	bug.Info("bug{true} Info text")
+	bug.Status("bug{true} Status text")
 	bug.Message("bug{true} Message text")
 	bug.Warning("bug{true} Warning text")
 	bug.Caution("bug{true} Caution text")
@@ -178,6 +180,7 @@ func TestDbg(t *testing.T) {
 	bug.Echo("bug{false} Echo text FAILED")
 	bug.Note("bug{false} Note text FAILED")
 	bug.Info("bug{false} Info text FAILED")
+	bug.Status("bug{false} Status text")
 	bug.Message("bug{false} Message text FAILED")
 	bug.Warning("bug{false} Warning text FAILED")
 	bug.Caution("bug{false} Caution text FAILED")
@@ -189,6 +192,7 @@ func TestDbg(t *testing.T) {
 	lvl.Echo(1, "lvl{0} 1 - Echo text") // should not be output...
 	lvl.Note(2, "lvl{0} 2 - Note text")
 	lvl.Info(3, "lvl{0} 3 - Info text")
+	lvl.Status(4, "lvl{0} 4 - Status text")
 	lvl.Message(4, "lvl{0} 4 - Message text")
 	lvl.Warning(5, "lvl{0} 5 - Warning text")
 	lvl.Caution(6, "lvl{0} 6 - Caution text")
@@ -200,6 +204,7 @@ func TestDbg(t *testing.T) {
 	lvl.Echo(1, "lvl{5} 1 - Echo text") // should be output...
 	lvl.Note(2, "lvl{5} 2 - Note text")
 	lvl.Info(3, "lvl{5} 3 - Info text")
+	lvl.Status(4, "lvl{5} 4 - Status text")
 	lvl.Message(4, "lvl{5} 4 - Message text")
 	lvl.Warning(5, "lvl{5} 5 - Warning text")
 	lvl.Caution(6, "lvl{5} 6 - Caution text FAILED") // should not be output...
@@ -211,6 +216,7 @@ func TestDbg(t *testing.T) {
 	msk.Echo(1, "msk{xA} 1 - Echo text FAILED")       // should not be output
 	msk.Note(2, "msk{xA} 2 - Note text")              // should be output
 	msk.Info(3, "msk{xA} 3 - Info text")              // should be output
+	msk.Status(3, "msk{xA} 3 - Status text")          // should be output
 	msk.Message(4, "msk{xA} 4 - Message text FAILED") // should not be output
 	msk.Warning(5, "msk{xA} 5 - Warning text FAILED") // should not be output
 	msk.Caution(6, "msk{xA} 6 - Caution text")        // should be output
